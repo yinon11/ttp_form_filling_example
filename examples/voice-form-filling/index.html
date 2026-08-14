@@ -102,66 +102,189 @@
     <script src="app.js"></script>
 
     <!--
-      TTP voice agent widget. Loads the SDK from the CDN, mounts the chat widget
-      for this agent, and registers two client tools that the agent can call to
-      drive the form. The handlers just delegate to the window.TTPFormFiller API
-      defined in app.js.
+      TTP voice agent widget + client tools.
+
+      IMPORTANT (this is the point of the example):
+      A real form is usually NOT built for voice. So instead of relying on a
+      tidy pre-built API, the fill handler below takes whatever field(s) the
+      agent sends and, with an explicit `switch`, maps each one to the concrete
+      DOM control on THIS page — set the value, fire the events the form expects.
+      Copy this pattern onto your own form: add a `case` per field you support.
 
       Tool names MUST match the client tools configured on the agent:
-        - fill_contact_field(field, value)  -> fills one field
-        - submit_form()                     -> validates + submits + shows result
+        - fill_contact_field({ firstName?, lastName?, phone?, city? })
+              fills one OR several fields in a single call (the user may say two
+              things in one sentence, e.g. "I'm Mehmet Yılmaz").
+        - submit_form()   -> submits the form and shows the result on screen.
     -->
     <script src="https://unpkg.com/ttp-agent-sdk@2.48.0/dist/agent-widget.js"></script>
     <script>
-      var widget = new TTPAgentSDK.TTPChatWidget({
-        agentId: "agent_6061abed2",
-        appId: "app_wNGQKiMUfUT5JdVIaxzXOJfdcgBegxGY5hZo",
-      });
-
-      // --- Client tool: fill one field at a time --------------------------------
-      // Called by the agent as the user provides each piece of info.
-      // params: { field: "firstName"|"lastName"|"phone"|"city", value: string }
-      // returns: { ok, field, value, error, remaining } so the agent knows what
-      // was stored (normalized), what was rejected and why, and what's still missing.
-      widget.registerToolHandler("fill_contact_field", async function (params) {
-        var api = window.TTPFormFiller;
-        if (!api) return { ok: false, error: "Form is not ready yet." };
-
-        var field = params && params.field;
-        var value = params && params.value;
-        if (!field) return { ok: false, error: "Missing 'field'." };
-
-        var res = api.setField(field, value);
-
-        // Which required fields are still empty (so the agent can ask next).
-        var data = api.getData();
-        var remaining = api.fields.filter(function (f) {
-          return !data[f];
+      (function () {
+        var widget = new TTPAgentSDK.TTPChatWidget({
+          agentId: "agent_6061abed2",
+          appId: "app_wNGQKiMUfUT5JdVIaxzXOJfdcgBegxGY5hZo",
         });
 
-        return {
-          ok: res.ok,
-          field: res.name,
-          value: res.value,
-          error: res.error || "",
-          remaining: remaining,
-        };
-      });
+        // The fields this form knows about. To support a new field, add it here
+        // and add a matching `case` in fillOneField() below.
+        var KNOWN_FIELDS = ["firstName", "lastName", "phone", "city"];
 
-      // --- Client tool: submit the form -----------------------------------------
-      // Called once all fields are collected. Validates, and on success shows the
-      // submitted data on screen. No params.
-      // returns: { ok, data } on success, or { ok:false, errors } on failure.
-      widget.registerToolHandler("submit_form", async function () {
-        var api = window.TTPFormFiller;
-        if (!api) return { ok: false, error: "Form is not ready yet." };
+        // ---- small DOM helpers ------------------------------------------------
 
-        var res = api.submit();
-        if (res.ok) {
-          return { ok: true, data: res.data };
+        // Set a control's value and fire the events a real keystroke would, so
+        // the form's OWN listeners (validation, error-clearing, etc.) still run.
+        function applyValue(el, value) {
+          el.value = value;
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+          flash(el);
         }
-        return { ok: false, errors: res.errors };
-      });
+
+        // Brief visual cue so you can watch the agent fill each field.
+        function flash(el) {
+          var block = el.closest(".field");
+          if (!block) return;
+          block.classList.remove("just-filled");
+          void block.offsetWidth; // restart the CSS animation
+          block.classList.add("just-filled");
+        }
+
+        // ---- per-field mapping (the "switch") ---------------------------------
+        // Given a field name + the value the user said, do the specific thing
+        // needed to set THAT control on this form. Returns { ok, value?, error? }.
+        function fillOneField(field, rawValue) {
+          var value = (rawValue == null ? "" : String(rawValue)).trim();
+
+          switch (field) {
+            case "firstName":
+            case "lastName": {
+              var textEl = document.getElementById(field);
+              if (!textEl) return { ok: false, error: "Field '" + field + "' not found." };
+              if (!value) return { ok: false, error: "Value is empty." };
+              applyValue(textEl, value);
+              return { ok: true, value: value };
+            }
+
+            case "phone": {
+              var phoneEl = document.getElementById("phone");
+              if (!phoneEl) return { ok: false, error: "Phone field not found." };
+              // Turkish number: keep digits, drop +90 / 90 / leading 0 -> want 10 digits.
+              var digits = value.replace(/[^\d+]/g, "");
+              if (digits.indexOf("+90") === 0) digits = digits.slice(3);
+              else if (digits.indexOf("90") === 0 && digits.length === 12) digits = digits.slice(2);
+              else if (digits.charAt(0) === "0") digits = digits.slice(1);
+              digits = digits.replace(/\D/g, "");
+              if (digits.length !== 10) {
+                return { ok: false, error: "Not a valid Turkish phone number (need 10 digits, e.g. 532 123 45 67)." };
+              }
+              var normalized = "+90" + digits;
+              applyValue(phoneEl, normalized);
+              return { ok: true, value: normalized };
+            }
+
+            case "city": {
+              var selectEl = document.getElementById("city");
+              if (!selectEl) return { ok: false, error: "City field not found." };
+              // Match what the user said against the <option> value OR its label,
+              // case-insensitively (Turkish locale for the İ/ı dotted-i quirk).
+              var want = value.toLocaleLowerCase("tr");
+              var match = Array.prototype.find.call(selectEl.options, function (opt) {
+                if (!opt.value) return false; // skip the "Select a city…" placeholder
+                return (
+                  opt.value.toLowerCase() === want ||
+                  opt.textContent.trim().toLocaleLowerCase("tr") === want
+                );
+              });
+              if (!match) {
+                var choices = Array.prototype.map
+                  .call(selectEl.options, function (o) { return o.value; })
+                  .filter(Boolean)
+                  .join(", ");
+                return { ok: false, error: "City must be one of: " + choices + "." };
+              }
+              applyValue(selectEl, match.value);
+              return { ok: true, value: match.value };
+            }
+
+            default:
+              return { ok: false, error: "Unknown field: " + field };
+          }
+        }
+
+        // Required fields still empty on the page (so the agent knows what to ask next).
+        function remainingFields() {
+          return KNOWN_FIELDS.filter(function (f) {
+            var el = document.getElementById(f);
+            return !el || !el.value.trim();
+          });
+        }
+
+        // ---- Client tool: fill one or more fields -----------------------------
+        // params: { firstName?, lastName?, phone?, city? }
+        //   (also tolerates a single { field, value } pair)
+        // returns: { ok, updated, errors, remaining }
+        widget.registerToolHandler("fill_contact_field", async function (params) {
+          params = params || {};
+
+          // Normalize whatever shape the agent sent into a field -> value map.
+          var incoming = {};
+          if (params.field) {
+            incoming[params.field] = params.value; // single { field, value } pair
+          } else {
+            KNOWN_FIELDS.forEach(function (f) {
+              if (params[f] != null && params[f] !== "") incoming[f] = params[f];
+            });
+          }
+
+          var updated = {};
+          var errors = {};
+
+          // Handle each field the user mentioned — could be one, could be several.
+          Object.keys(incoming).forEach(function (field) {
+            var res = fillOneField(field, incoming[field]);
+            if (res.ok) updated[field] = res.value;
+            else errors[field] = res.error;
+          });
+
+          return {
+            ok: Object.keys(errors).length === 0 && Object.keys(updated).length > 0,
+            updated: updated,
+            errors: errors,
+            remaining: remainingFields(),
+          };
+        });
+
+        // ---- Client tool: submit ----------------------------------------------
+        // Triggers the form's OWN submit (like clicking the button) and reads the
+        // outcome back from the DOM — no special API needed.
+        // returns: { ok, data } on success, or { ok:false, errors } on failure.
+        widget.registerToolHandler("submit_form", async function () {
+          var form = document.getElementById("contact-form");
+          if (!form) return { ok: false, error: "Form not found." };
+
+          if (typeof form.requestSubmit === "function") form.requestSubmit();
+          else form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+
+          // Did the form's result panel appear? Then it submitted.
+          var resultPanel = document.getElementById("result");
+          if (resultPanel && !resultPanel.hidden) {
+            var data = {};
+            KNOWN_FIELDS.forEach(function (f) {
+              var el = document.getElementById(f);
+              data[f] = el ? el.value.trim() : "";
+            });
+            return { ok: true, data: data };
+          }
+
+          // Otherwise collect the inline error messages the form displayed.
+          var errors = {};
+          form.querySelectorAll(".error").forEach(function (e) {
+            var key = e.getAttribute("data-error-for");
+            if (key && e.textContent.trim()) errors[key] = e.textContent.trim();
+          });
+          return { ok: false, errors: errors };
+        });
+      })();
     </script>
   </body>
 </html>
