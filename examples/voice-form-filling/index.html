@@ -100,5 +100,18 @@
     </main>
 
     <script src="app.js"></script>
+
+    <!--
+      TTP voice agent widget. Loads the SDK from the CDN, then mounts the chat
+      widget for this agent. The agent's client tools (set_form_field /
+      submit_form) call the window.TTPFormFiller API defined in app.js.
+    -->
+    <script src="https://unpkg.com/ttp-agent-sdk@2.48.0/dist/agent-widget.js"></script>
+    <script>
+      new TTPAgentSDK.TTPChatWidget({
+        agentId: "agent_6061abed2",
+        appId: "app_wNGQKiMUfUT5JdVIaxzXOJfdcgBegxGY5hZo",
+      });
+    </script>
   </body>
 </html>
