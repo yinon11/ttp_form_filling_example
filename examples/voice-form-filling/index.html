@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Voice Form Filling — TTP Example</title>
+    <link rel="stylesheet" href="../../shared/base.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <p class="eyebrow">
+        <a href="../../index.html">← All examples</a>
+      </p>
+      <h1>Contact Form</h1>
+      <p class="lead">
+        Phase 1 — a plain form. In later phases a TTP voice agent will fill these
+        fields for you and submit them by voice.
+      </p>
+
+      <form id="contact-form" class="card" novalidate>
+        <!--
+          Each field is wrapped in a .field block:
+            <div class="field">
+              <label>...</label>
+              <input / select ... />
+              <p class="error"></p>   <- validation message target
+            </div>
+          The name attribute on each control is the canonical field key used by
+          the JS API (window.TTPFormFiller) and, later, by the voice agent's
+          client tool.
+        -->
+
+        <div class="field">
+          <label for="firstName">First name</label>
+          <input
+            type="text"
+            id="firstName"
+            name="firstName"
+            autocomplete="given-name"
+            placeholder="e.g. Mehmet"
+          />
+          <p class="error" data-error-for="firstName"></p>
+        </div>
+
+        <div class="field">
+          <label for="lastName">Last name</label>
+          <input
+            type="text"
+            id="lastName"
+            name="lastName"
+            autocomplete="family-name"
+            placeholder="e.g. Yılmaz"
+          />
+          <p class="error" data-error-for="lastName"></p>
+        </div>
+
+        <div class="field">
+          <label for="phone">Phone number</label>
+          <input
+            type="tel"
+            id="phone"
+            name="phone"
+            autocomplete="tel"
+            placeholder="e.g. +90 532 123 45 67"
+          />
+          <p class="hint">Turkish number — mobile or landline.</p>
+          <p class="error" data-error-for="phone"></p>
+        </div>
+
+        <div class="field">
+          <label for="city">City</label>
+          <select id="city" name="city">
+            <option value="" selected disabled>Select a city…</option>
+            <option value="istanbul">Istanbul</option>
+            <option value="ankara">Ankara</option>
+            <option value="izmir">Izmir</option>
+            <option value="antalya">Antalya</option>
+          </select>
+          <p class="error" data-error-for="city"></p>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn btn-primary">Submit</button>
+          <button type="button" class="btn btn-ghost" id="reset-btn">
+            Reset
+          </button>
+        </div>
+      </form>
+
+      <!--
+        Submitted-data panel. Hidden until submit succeeds. Doubles as the
+        "show on screen what we've sent" surface for phase 3 (voice submit).
+      -->
+      <section id="result" class="card result" hidden>
+        <h2>Submitted ✓</h2>
+        <p class="lead">This is the data that would be sent to your backend:</p>
+        <pre id="result-json"></pre>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

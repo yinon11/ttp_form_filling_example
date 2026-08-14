@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TTP Voice Examples</title>
+    <link rel="stylesheet" href="shared/base.css" />
+    <style>
+      .examples {
+        list-style: none;
+        margin: 24px 0 0;
+        padding: 0;
+        display: grid;
+        gap: 14px;
+      }
+      .example-item a {
+        display: block;
+        padding: 18px 20px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface);
+        color: inherit;
+        text-decoration: none;
+        transition: border-color 0.15s ease, transform 0.15s ease;
+      }
+      .example-item a:hover {
+        border-color: var(--primary);
+        transform: translateY(-1px);
+        text-decoration: none;
+      }
+      .example-item h3 {
+        margin: 0 0 4px;
+        font-size: 17px;
+      }
+      .example-item p {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 14px;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--primary);
+        background: rgba(47, 109, 246, 0.1);
+        padding: 2px 8px;
+        border-radius: 999px;
+        margin-left: 8px;
+        vertical-align: middle;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <p class="eyebrow">TalkToPC</p>
+      <h1>Voice Agent Examples</h1>
+      <p class="lead">
+        A small collection of self-contained examples showing how to drive a web
+        page with a TalkToPC (TTP) voice agent. Each example lives in its own
+        folder under <code>examples/</code> and can be opened directly in a
+        browser.
+      </p>
+
+      <ul class="examples">
+        <li class="example-item">
+          <a href="examples/voice-form-filling/index.html">
+            <h3>
+              Voice Form Filling
+              <span class="badge">Phase 1</span>
+            </h3>
+            <p>
+              A simple contact form (first name, last name, phone, city). Built
+              to be filled field-by-field by a voice agent client tool.
+            </p>
+          </a>
+        </li>
+      </ul>
+    </main>
+  </body>
+</html>
