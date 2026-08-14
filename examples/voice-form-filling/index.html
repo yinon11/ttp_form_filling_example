@@ -102,15 +102,65 @@
     <script src="app.js"></script>
 
     <!--
-      TTP voice agent widget. Loads the SDK from the CDN, then mounts the chat
-      widget for this agent. The agent's client tools (set_form_field /
-      submit_form) call the window.TTPFormFiller API defined in app.js.
+      TTP voice agent widget. Loads the SDK from the CDN, mounts the chat widget
+      for this agent, and registers two client tools that the agent can call to
+      drive the form. The handlers just delegate to the window.TTPFormFiller API
+      defined in app.js.
+
+      Tool names MUST match the client tools configured on the agent:
+        - fill_contact_field(field, value)  -> fills one field
+        - submit_form()                     -> validates + submits + shows result
     -->
     <script src="https://unpkg.com/ttp-agent-sdk@2.48.0/dist/agent-widget.js"></script>
     <script>
-      new TTPAgentSDK.TTPChatWidget({
+      var widget = new TTPAgentSDK.TTPChatWidget({
         agentId: "agent_6061abed2",
         appId: "app_wNGQKiMUfUT5JdVIaxzXOJfdcgBegxGY5hZo",
+      });
+
+      // --- Client tool: fill one field at a time --------------------------------
+      // Called by the agent as the user provides each piece of info.
+      // params: { field: "firstName"|"lastName"|"phone"|"city", value: string }
+      // returns: { ok, field, value, error, remaining } so the agent knows what
+      // was stored (normalized), what was rejected and why, and what's still missing.
+      widget.registerToolHandler("fill_contact_field", async function (params) {
+        var api = window.TTPFormFiller;
+        if (!api) return { ok: false, error: "Form is not ready yet." };
+
+        var field = params && params.field;
+        var value = params && params.value;
+        if (!field) return { ok: false, error: "Missing 'field'." };
+
+        var res = api.setField(field, value);
+
+        // Which required fields are still empty (so the agent can ask next).
+        var data = api.getData();
+        var remaining = api.fields.filter(function (f) {
+          return !data[f];
+        });
+
+        return {
+          ok: res.ok,
+          field: res.name,
+          value: res.value,
+          error: res.error || "",
+          remaining: remaining,
+        };
+      });
+
+      // --- Client tool: submit the form -----------------------------------------
+      // Called once all fields are collected. Validates, and on success shows the
+      // submitted data on screen. No params.
+      // returns: { ok, data } on success, or { ok:false, errors } on failure.
+      widget.registerToolHandler("submit_form", async function () {
+        var api = window.TTPFormFiller;
+        if (!api) return { ok: false, error: "Form is not ready yet." };
+
+        var res = api.submit();
+        if (res.ok) {
+          return { ok: true, data: res.data };
+        }
+        return { ok: false, errors: res.errors };
       });
     </script>
   </body>
