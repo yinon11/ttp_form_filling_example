@@ -17,9 +17,10 @@ fills in field by field and submits — hands-free.
 │   └── base.css                     # Shared neutral design tokens/styles
 └── examples/
     └── voice-form-filling/
-        ├── index.html               # The form
+        ├── index.html               # The form + widget + registered client tools
         ├── styles.css               # Form-specific styles
-        └── app.js                   # Form logic + the TTPFormFiller API
+        ├── app.js                   # Form logic + the TTPFormFiller API
+        └── AGENT_SETUP.md           # How to configure the voice agent (prompt + tools)
 ```
 
 Each example is self-contained inside its own folder under `examples/`. To add a
@@ -44,8 +45,36 @@ exact same `app.js` API.
 | Phase | What it adds | Status |
 | ----- | ------------ | ------ |
 | **1** | The plain form: first name, last name, phone, city (dropdown), light validation, and an on-screen "submitted data" panel. | ✅ Done |
-| **2** | A TTP agent with a **client tool** that fills the form field by field as the user speaks. | ⏳ Next |
-| **3** | Fill the whole form **by voice**, submit by voice, and show on screen exactly what was sent. | ⏳ Planned |
+| **2** | The voice widget + two **client tools** (`fill_contact_field`, `submit_form`) registered on the page so the agent can fill the form field by field. | ✅ Done |
+| **3** | Fill the whole form **by voice**, submit by voice, and show on screen exactly what was sent. | ✅ Done |
+
+> Phases 2 & 3 are wired up in the browser. To make them run you configure a TTP
+> agent (system prompt + the two tools) — see
+> **[Setting up the voice agent](#setting-up-the-voice-agent)** below.
+
+## Setting up the voice agent
+
+The form page ([`examples/voice-form-filling/index.html`](examples/voice-form-filling/index.html))
+already loads the TTP widget and registers two **client tools** in the browser —
+you don't write any browser code for the agent:
+
+| Tool | What it does |
+| ---- | ------------ |
+| `fill_contact_field({ firstName?, lastName?, phone?, city? })` | Fills one or more fields (the user may say several in one sentence). Returns what was accepted (normalized), what was rejected and why, and which fields are still empty. |
+| `submit_form()` | Submits the form and shows the result on screen. |
+
+To make it work, create a TTP agent with the matching system prompt and tool
+definitions. The full, paste-ready details are in
+**[`AGENT_SETUP.md`](examples/voice-form-filling/AGENT_SETUP.md)**:
+
+- Agent basics (English, voice, attach both tools with **Wait for result = ON**)
+- The complete **system prompt**
+- Both **tool definitions** (parameters + return shapes, as readable tables)
+- A quick test walkthrough
+
+> The tool **names are the contract** — the agent's tools must be named exactly
+> `fill_contact_field` and `submit_form` to match the handlers registered on the
+> page.
 
 ## How the form is driven: `window.TTPFormFiller`
 
